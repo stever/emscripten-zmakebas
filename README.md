@@ -1,8 +1,30 @@
-zmakebas
---------
+# zmakebas
 
-Description
------------
+Emscripten conversion for zmakebas which converts BASIC to a TAP tape file.
+
+## Usage
+
+```bash
+npm install zmakebas
+```
+
+```javascript
+import zmakebas from "zmakebas";
+
+const tap = zmakebas('10 PRINT "Hello"');
+```
+
+## Build library
+
+```bash
+npm install
+npm run build
+npm run test
+```
+
+## zmakebas notes
+
+### Description
 
 zmakebas converts a Spectrum Basic program written as a text file into
 an actual speccy Basic file (as a .TAP file, or optionally a raw
@@ -19,19 +41,7 @@ However, I went to a fair amount of effort to make sure it'd work for
 bigger, more serious programs too, so you can also use it for that
 kind of thing.
 
-
-Installation
-------------
-
-While I think zmakebas should be fairly portable, I've only ever
-compiled it on Linux and MS-DOS. Things should be ok for Linux as-is -
-just do `make` then (as root) `make install`.
-
-
-Miscellaneous
--------------
-
-See the man page for details of how to use zmakebas.
+### Miscellaneous
 
 There's a short demo file showing the use of escape sequences for UDGs
 and block graphics characters etc. here, named `demo.bas`. You can use
@@ -39,13 +49,40 @@ and block graphics characters etc. here, named `demo.bas`. You can use
 using labels is in `demolbl.bas`, which can be converted with
 `zmakebas -l demolbl.bas`.
 
-
-Contacting me
--------------
+### Contacting the original author
 
 You can email me at russell.marks@ntlworld.com.
-
 
 Share and enjoy! 
 
 -Rus.
+
+## Licenses
+
+### zmakebas
+
+Public domain by Russell Marks.
+
+### emscripten-fs-example
+
+MIT License
+
+Copyright (c) 2018 Damián Silvani
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

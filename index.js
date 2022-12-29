@@ -10,6 +10,7 @@ module.exports = (input, labelsMode) => {
     Module({
       'input': input,
       'resolve': resolve,
+      'reject': reject,
       'arguments': args
     });
   });

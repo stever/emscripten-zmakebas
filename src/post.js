@@ -10,5 +10,10 @@ Module['postRun'].push(function () {
     FS.close(file);
 
     const output = FS.readFile(filename);
-    Module['resolve'](output);
+
+    if (output.length === 0) {
+        Module['reject']();
+    } else {
+        Module['resolve'](output);
+    }
 });

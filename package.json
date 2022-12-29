@@ -3,20 +3,20 @@
   "version": "0.0.1-alpha.2",
   "main": "index.js",
   "license": "GPL-2.0+",
-  "author": "Steven Robertson <stever@hey.com>",
+  "author": "Steve Robertson <stever@hey.com>",
   "description": "Emscripten conversion for zmakebas which converts BASIC to a TAP tape file.",
   "keywords": [
     "emscripten",
     "zxspectrum",
     "basic"
   ],
-  "homepage": "https://github.com/zxplay/zmakebas#readme",
+  "homepage": "https://github.com/stever/emscripten-zmakebas#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/zxplay/zmakebas.git"
+    "url": "https://github.com/stever/emscripten-zmakebas.git"
   },
   "bugs": {
-    "url": "https://github.com/zxplay/zmakebas/issues"
+    "url": "https://github.com/stever/emscripten-zmakebas/issues"
   },
   "files": [
     "index.js",

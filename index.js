@@ -1,4 +1,4 @@
-const zmakebas = require('./dist/zmakebas.js')
+const Module = require('./dist/zmakebas.js')
 
 module.exports = (input, labelsMode) => {
 
@@ -11,13 +11,19 @@ module.exports = (input, labelsMode) => {
     args.push('output.tap');
     args.push('input.bas');
 
+    // Collect output.
+    const out = [];
+
     // Call the zmakebas module with data for command.
     return new Promise((resolve, reject) => {
-        zmakebas({
-            'arguments': args,
-            'input': input,
-            'resolve': resolve,
-            'reject': reject
+        Module({
+            arguments: args,
+            input,
+            out,
+            resolve,
+            reject,
+            print: (text) => out.push({type: 'out', text}),
+            printErr: (text) => out.push({type: 'err', text}),
         });
     });
 }

@@ -3,6 +3,18 @@
 import * as assert from "assert";
 import zmakebas from "../index.js";
 
+function printErrorOut(errorItems) {
+    for (let i = 0; i < errorItems.length; i++) {
+        const item = errorItems[i];
+        if (item.type === 'out') {
+            console.log(`[stdout] ${item.text}`);
+        } else {
+            console.assert(item.type === 'err');
+            console.log(`[stderr] ${item.text}`);
+        }
+    }
+}
+
 describe('zmakebas', () => {
     test('hello, world', () => {
         let bas = '';
@@ -18,30 +30,14 @@ describe('zmakebas', () => {
                     "\"27\":0,\"28\":245,\"29\":34,\"30\":72,\"31\":101,\"32\":108,\"33\":108,\"34\":111,\"35\":44," +
                     "\"36\":32,\"37\":119,\"38\":111,\"39\":114,\"40\":108,\"41\":100,\"42\":33,\"43\":34,\"44\":13," +
                     "\"45\":0,\"46\":20,\"47\":10,\"48\":0,\"49\":236,\"50\":49,\"51\":48,\"52\":14,\"53\":0," +
-                    "\"54\":0,\"55\":10,\"56\":0,\"57\":0,\"58\":13,\"59\":235}");
+                    "\"54\":0,\"55\":10,\"56\":0,\"57\":0,\"58\":13,\"59\":235}"
+                );
             },
             error => {
-                assert.fail(error);
+                printErrorOut(error);
+                assert.fail();
             }
         );
-    });
-
-    test('error in program', () => {
-        let bas = '';
-        bas = bas + 'PRINT"\n';
-
-        try {
-            return zmakebas(bas).then(
-                result => {
-                    expect(JSON.stringify(result)).toBe("{}");
-                },
-                error => {
-                    assert.fail(error);
-                }
-            );
-        } catch (e) {
-            console.error(e);
-        }
     });
 
     test('labelsMode', () => {
@@ -58,11 +54,34 @@ describe('zmakebas', () => {
                     "\"27\":0,\"28\":115,\"29\":116,\"30\":97,\"31\":114,\"32\":116,\"33\":245,\"34\":34,\"35\":72," +
                     "\"36\":101,\"37\":108,\"38\":108,\"39\":111,\"40\":44,\"41\":32,\"42\":119,\"43\":111," +
                     "\"44\":114,\"45\":108,\"46\":100,\"47\":33,\"48\":34,\"49\":13,\"50\":0,\"51\":12,\"52\":7," +
-                    "\"53\":0,\"54\":236,\"55\":115,\"56\":116,\"57\":97,\"58\":114,\"59\":116,\"60\":13,\"61\":252}");
+                    "\"53\":0,\"54\":236,\"55\":115,\"56\":116,\"57\":97,\"58\":114,\"59\":116,\"60\":13,\"61\":252}"
+                );
             },
             error => {
-                assert.fail(error);
+                printErrorOut(error);
+                assert.fail();
             }
         );
+    });
+
+    test('error in program', () => {
+        let bas = '';
+        bas = bas + 'PRINT"\n';
+
+        try {
+            return zmakebas(bas).then(
+                result => {
+                    expect(JSON.stringify(result)).toBe("{}");
+                    assert.fail(); // Expecting error here.
+                },
+                error => {
+                    expect(error.length).toBe(1);
+                    expect(error[0].type).toBe('err');
+                    expect(error[0].text).toBe('line 1: missing line number');
+                }
+            );
+        } catch (e) {
+            console.error(e);
+        }
     });
 });

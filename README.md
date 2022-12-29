@@ -16,6 +16,8 @@ const tap = zmakebas('10 PRINT "Hello"');
 
 ## Build library
 
+Note that you need to have the Emscripten SDK installed and available on path.
+
 Install & activate `emsdk` from Emscripten:
 
 ```bash
@@ -26,6 +28,8 @@ git pull
 ./emsdk activate latest
 source ./emsdk_env.sh
 ```
+
+Build the library:
 
 ```bash
 npm install

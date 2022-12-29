@@ -1,3 +1,5 @@
+// noinspection JSUnresolvedFunction
+
 import * as assert from "assert";
 import zmakebas from "../index.js";
 
@@ -24,6 +26,24 @@ describe('zmakebas', () => {
         );
     });
 
+    test('error in program', () => {
+        let bas = '';
+        bas = bas + 'PRINT"\n';
+
+        try {
+            return zmakebas(bas).then(
+                result => {
+                    expect(JSON.stringify(result)).toBe("{}");
+                },
+                error => {
+                    assert.fail(error);
+                }
+            );
+        } catch (e) {
+            console.error(e);
+        }
+    });
+
     test('labelsMode', () => {
         let bas = '';
         bas = bas + 'start print "Hello, world!"\n';
@@ -45,4 +65,4 @@ describe('zmakebas', () => {
             }
         );
     });
-})
+});

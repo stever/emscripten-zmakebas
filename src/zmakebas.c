@@ -27,12 +27,18 @@
 
 #define REM_TOKEN_NUM		234
 #define BIN_TOKEN_NUM		196
+#define VAL_TOKEN_NUM		176
+#define VALSTR_TOKEN_NUM	174
+#define DEFFN_TOKEN_NUM		206
 
 /* tokens are stored (and looked for) in reverse speccy-char-set order,
  * to avoid def fn/fn and go to/to screwups. There are two entries for
  * each token - this is to allow for things like "go to" which can
  * actually be entered (thank ghod) as "goto". The one extension to
  * this I've made is that randomize can be entered with -ize or -ise.
+ *
+ * One exception to the above - VAL/VAL$ positions are flipped here
+ * so that we do VAL$ first, and swapped after tokenising.
  */
 char *tokens[]=
   {
@@ -115,9 +121,9 @@ char *tokens[]=
   "cos", "",
   "sin", "",
   "len", "",
-  "val", "",
-  "code", "",
   "val$", "",
+  "code", "",
+  "val", "",
   "tab", "",
   "at", "",
   "attr", "",
@@ -151,12 +157,9 @@ char infile[1024],outfile[1024];
 #define MAX_LABEL_LEN	16
 
 /* this is needed for tap files too: */
-unsigned char headerbuf[128];
+unsigned char headerbuf[17];
 
-typedef enum { RAW, TAP, PLUS3DOS } OUTPUT_FORMAT;
-
-OUTPUT_FORMAT output_format=TAP;
-int use_labels=0;
+int output_tap=1,use_labels=0;
 unsigned int startline=0x8000;
 int autostart=10,autoincr=2;
 char speccy_filename[11];
@@ -383,9 +386,9 @@ return(v);
 
 void usage_help()
 {
-printf("zmakebas - public domain by Russell Marks.\n\n");
+printf("zmakebas 1.2b - public domain by Russell Marks.\n\n");
 
-printf("usage: zmakebas [-hlpr] [-a line] [-i incr] [-n speccy_filename]\n");
+printf("usage: zmakebas [-hlr] [-a line] [-i incr] [-n speccy_filename]\n");
 printf("                [-o output_file] [-s line] [input_file]\n\n");
 
 printf("        -a      set auto-start line of basic file (default none).\n");
@@ -395,7 +398,6 @@ printf("        -l      use labels rather than line numbers.\n");
 printf("        -n      set Spectrum filename (to be given in tape header).");
 printf("\n        -o      specify output file (default `%s').\n",
 						DEFAULT_OUTPUT);
-printf("        -p      output +3DOS file (default is .tap file).\n");            
 printf("        -r      output raw headerless file (default is .tap file).\n");
 printf("        -s      in labels mode, set starting line number ");
 printf("(default 10).\n");
@@ -413,7 +415,7 @@ opterr=0;
 startlabel[0]=0;
 
 do
-  switch(getopt(argc,argv,"a:hi:ln:o:prs:"))
+  switch(getopt(argc,argv,"a:hi:ln:o:rs:"))
     {
     case 'a':
       if(*optarg=='@')
@@ -447,12 +449,13 @@ do
       speccy_filename[10]=0;
       break;
     case 'o':
-      strcpy(outfile,optarg);
+      if(strlen(optarg)>sizeof(outfile)-1)
+        fprintf(stderr,"Filename too long\n"),exit(1);
+      else
+        strcpy(outfile,optarg);
       break;
-    case 'p':	/* output plus3dos */
-      output_format=PLUS3DOS; break;      
     case 'r':	/* output raw file */
-      output_format=RAW; break;
+      output_tap=0; break;
     case 's':
       autostart=(int)atoi(optarg);
       if(autostart<0 || autostart>9999)
@@ -490,7 +493,12 @@ if(optind<argc-1)	/* two or more remaining args */
   usage_help(),exit(1);
 
 if(optind==argc-1)	/* one remaining arg */
-  strcpy(infile,argv[optind]);
+  {
+  if(strlen(argv[optind])>sizeof(infile)-1)
+    fprintf(stderr,"Filename too long\n"),exit(1);
+  else
+    strcpy(infile,argv[optind]);
+  }
 }
 
 
@@ -530,9 +538,19 @@ int main(int argc,char *argv[])
 #ifdef MSDOS
 static unsigned char buf[512],lcasebuf[512],outbuf[1024];
 #else
-static unsigned char buf[2048],lcasebuf[2048],outbuf[4096];
+/* deliberately very large buffers, to allow e.g. embedding of m/c
+ * programs in REM statements. 48k*8 should cover all eventualities,
+ * and not generally be a problem at this point. I mean, it's not
+ * even a megabyte in total, what's that between friends? :-)
+ *
+ * Note that these need to be large even if line-continuation
+ * backslashes are used, as the line is constructed in buf[]. outbuf
+ * is in the Spectrum's tokenised format, and can be much smaller.
+ */
+static unsigned char buf[8*49152],lcasebuf[8*49152];
+static unsigned char outbuf[49152];
 #endif
-int f,toknum,toklen,linenum,linelen,in_quotes,in_rem,lastline;
+int f,toknum,toklen,linenum,linelen,in_quotes,in_rem,in_deffn,lastline;
 char **tarrptr;
 unsigned char *ptr,*ptr2,*linestart,*outptr,*remptr,*fileptr,*asciiptr;
 double num;
@@ -542,7 +560,6 @@ int textlinenum;
 int chk=0;
 int alttok;
 int passnum=1;
-unsigned int siz;
 FILE *in=stdin,*out=stdout;
 
 strcpy(speccy_filename,"");
@@ -583,13 +600,20 @@ do
      */
     if(buf[1]==0 || buf[1]=='#') continue;
     
-    /* check for line continuation */
-    while(buf[strlen(buf)-1]=='\\')
+    /* check for line continuation; the "*buf" checks here aren't strictly
+     * necessary (see buf[0] above) but I'm just happier this way. :-)
+     */
+    while(*buf && buf[strlen(buf)-1]=='\\' && !feof(in))
       {
       f=strlen(buf)-1;
-      fgets(buf+f,sizeof(buf)-f,in);
-      textlinenum++;
-      if(buf[strlen(buf)-1]=='\n') buf[strlen(buf)-1]=0;
+      if(fgets(buf+f,sizeof(buf)-f,in))
+        textlinenum++;
+      else
+        {
+        if(*buf) buf[strlen(buf)-1]=0;	/* remove backslash on EOF */
+        }
+      
+      if(*buf && buf[strlen(buf)-1]=='\n') buf[strlen(buf)-1]=0;
       }
     
     if(strlen(buf)>=sizeof(buf)-MAX_LABEL_LEN-1)
@@ -739,6 +763,11 @@ do
       {
       if(alttok) toknum--;
       alttok=!alttok;
+      switch(toknum)
+        {
+        case VAL_TOKEN_NUM: toknum=VALSTR_TOKEN_NUM; break;
+        case VALSTR_TOKEN_NUM: toknum=VAL_TOKEN_NUM;
+        }
       if(**tarrptr==0) continue;
       toklen=strlen(*tarrptr);
       ptr=lcasebuf;
@@ -804,7 +833,7 @@ do
           if(memcmp(labels[f],ptr,len)==0 &&
             (ptr[len]<33 || ptr[len]>126 || ptr[len]==':'))
             {
-            unsigned char numbuf[20];
+            static unsigned char numbuf[64];
             
             /* this could be optimised to use a single memmove(), but
              * at least this way it's clear(er) what's happening.
@@ -835,7 +864,7 @@ do
     /* remove 0x01s, deal with backslash things, and add numbers */
     ptr=linestart;
     outptr=outbuf;
-    in_rem=in_quotes=0;
+    in_rem=in_deffn=in_quotes=0;
     
     while(*ptr)
       {
@@ -853,6 +882,8 @@ do
         ptr++;
         continue;
         }
+      
+      if(*ptr==DEFFN_TOKEN_NUM) in_deffn=1;
       
       if(*ptr==REM_TOKEN_NUM) in_rem=1;
       
@@ -948,8 +979,38 @@ do
         }
       else
         {
-        /* if not number, just output char */
-        *outptr++=*ptr++;
+        /* special def fn case */
+        if(in_deffn)
+          {
+          if(*ptr=='=')
+            in_deffn=0;
+          else
+            {
+            if(*ptr==',' || *ptr==')')
+              {
+              *outptr++=0x0e;
+              *outptr++=0;
+              *outptr++=0;
+              *outptr++=0;
+              *outptr++=0;
+              *outptr++=0;
+              *outptr++=*ptr++;
+              }
+            
+            if(*ptr!=' ')
+              {
+              if(*ptr=='=')
+                in_deffn=0;
+              
+              *outptr++=*ptr++;
+              }
+            }
+          }
+        else
+          {
+          /* if not number, just output char */
+          *outptr++=*ptr++;
+          }
         }
       }
     
@@ -1004,65 +1065,36 @@ if(*startlabel)
 if(strcmp(outfile,"-")!=0 && (out=fopen(outfile,"wb"))==NULL)
   fprintf(stderr,"Couldn't open output file.\n"),exit(1);
 
-switch(output_format)
+if(output_tap)
   {
-case PLUS3DOS:
-    siz=fileptr-filebuf;
+  unsigned int siz=fileptr-filebuf;
   
-    /* make header */
-    memset(headerbuf, 0, sizeof headerbuf);
-    memcpy(headerbuf, "PLUS3DOS\032\001", 10);
-
-    headerbuf[11] =  (siz + 128)        & 255;
-    headerbuf[12] = ((siz + 128) >> 8)  & 255;
-    headerbuf[13] = ((siz + 128) >> 16) & 255;
-    headerbuf[14] = ((siz + 128) >> 24) & 255;
-    headerbuf[15] = 0;	/* BASIC */
-    headerbuf[16]=(siz&255);
-    headerbuf[17]=(siz/256);
-    headerbuf[18]=(startline&255);
-    headerbuf[19]=(startline/256);
-    headerbuf[20]=(siz&255);
-    headerbuf[21]=(siz/256);
+  /* make header */
+  headerbuf[0]=0;
+  for(f=strlen(speccy_filename);f<10;f++)
+    speccy_filename[f]=32;
+  strncpy(headerbuf+1,speccy_filename,10);
+  headerbuf[11]=(siz&255);
+  headerbuf[12]=(siz/256);
+  headerbuf[13]=(startline&255);
+  headerbuf[14]=(startline/256);
+  headerbuf[15]=(siz&255);
+  headerbuf[16]=(siz/256);
   
-    chk = 0;
-    for (f=0;f<127;f++) chk += headerbuf[f];
-    fwrite(headerbuf,1,127,out);
-    fputc(chk,out);
-    break;
-case TAP:
-    siz=fileptr-filebuf;
+  /* write header */
+  fprintf(out,"%c%c%c",19,0,chk=0);
+  for(f=0;f<17;f++) chk^=headerbuf[f];
+  fwrite(headerbuf,1,17,out);
+  fputc(chk,out);
   
-     /* make header */
-    headerbuf[0]=0;
-    for(f=strlen(speccy_filename);f<10;f++)
-      speccy_filename[f]=32;
-    strncpy(headerbuf+1,speccy_filename,10);
-    headerbuf[11]=(siz&255);
-    headerbuf[12]=(siz/256);
-    headerbuf[13]=(startline&255);
-    headerbuf[14]=(startline/256);
-    headerbuf[15]=(siz&255);
-    headerbuf[16]=(siz/256);
-    
-    /* write header */
-    fprintf(out,"%c%c%c",19,0,chk=0);
-    for(f=0;f<17;f++) chk^=headerbuf[f];
-    fwrite(headerbuf,1,17,out);
-    fputc(chk,out);
-    
-    /* write (most of) tap bit for data block */
-    fprintf(out,"%c%c%c",(siz+2)&255,(siz+2)>>8,chk=255);
-    for(f=0;f<siz;f++) chk^=filebuf[f];
-    break;
-
-    case RAW:
-    break;
+  /* write (most of) tap bit for data block */
+  fprintf(out,"%c%c%c",(siz+2)&255,(siz+2)>>8,chk=255);
+  for(f=0;f<siz;f++) chk^=filebuf[f];
   }
 
 fwrite(filebuf,1,fileptr-filebuf,out);
 
-if(output_format == TAP)
+if(output_tap)
   fputc(chk,out);
 
 if(out!=stdout) fclose(out);
